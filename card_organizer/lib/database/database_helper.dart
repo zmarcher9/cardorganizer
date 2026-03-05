@@ -22,25 +22,27 @@ class DatabaseHelper {
       version: 1,
       onCreate: _onCreate,
       onConfigure: _onConfigure,
+      onOpen: (db) async {
+        final result = await db.rawQuery('SELECT COUNT(*) as count FROM folders');
+        final count = result.first['count'] as int;
+        if (count == 0) await _prepopulateData(db);
+      },
     );
   }
 
-  // Enable foreign key support (required for ON DELETE CASCADE)
   Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Create folders table
     await db.execute('''
       CREATE TABLE folders (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
         folder_name TEXT NOT NULL,
         timestamp   TEXT NOT NULL
       )
     ''');
 
-    // Create cards table with foreign key linking to folders
     await db.execute('''
       CREATE TABLE cards (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,12 +54,10 @@ class DatabaseHelper {
       )
     ''');
 
-    // Pre-populate with 4 suit folders and 52 cards
     await _prepopulateData(db);
   }
 
   Future<void> _prepopulateData(Database db) async {
-    // Maps suit name to the single-letter code used by the Deck of Cards API
     const suitCode = {
       'Hearts':   'H',
       'Diamonds': 'D',
@@ -65,7 +65,6 @@ class DatabaseHelper {
       'Spades':   'S',
     };
 
-    // Number cards (2-10) use the number itself; face cards have letter codes
     const valueCode = {
       'Ace':   'A',
       'Jack':  'J',
@@ -85,7 +84,6 @@ class DatabaseHelper {
       });
 
       for (final cardName in cardNames) {
-        // Build the two-character code, e.g. "AH", "10C", "KD"
         final code = (valueCode[cardName] ?? cardName) + suitCode[suit]!;
         final imageUrl = 'https://deckofcardsapi.com/static/img/$code.png';
 
@@ -99,7 +97,6 @@ class DatabaseHelper {
     }
   }
 
-  // Debug helper: prints all database contents to console
   Future<void> printDatabaseContents() async {
     final db = await database;
 
